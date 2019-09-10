@@ -1,0 +1,179 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "vmName": {
+            "type": "String",
+            "defaultValue": "ppsReuseVm",
+            "metadata": {
+                "description": "The name for the Virtual Machine."
+            }
+        },
+        "ImagePublisher": {
+            "type": "String",
+            "defaultValue": "MicrosoftWindowsServer",
+            "metadata": {
+                "description": "The image publisher."
+            }
+        },
+        "ImageOffer": {
+            "type": "String",
+            "defaultValue": "WindowsServer",
+            "metadata": {
+                "description": "The image offer"
+            }
+        },
+        "ImageSku": {
+            "type": "String",
+            "defaultValue": "2019-Datacenter",
+            "metadata": {
+                "description": "The SKU of the image."
+            }
+        },
+        "ImageVersion": {
+            "type": "String",
+            "defaultValue": "latest",
+            "metadata": {
+                "description": "The version of the image"
+            }
+        }
+    },
+    "variables": {
+        "addressPrefix": "10.0.0.0/16",
+        "subnetName": "MySubnet",
+        "subnetPrefix": "10.0.0.0/24",
+        "vnetName": "MyVnet",
+        "subnetRef": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), variables('subnetName'))]",
+        "publicIPAddressName": "mypublicIp",
+        "nicName": "MyNic",
+        "nsgName": "MyNSG",
+        "ipRef": "[resourceId('Microsoft.Network/publicIPAddresses', variables('publicIPAddressName'))]",
+        "nicRef": "[resourceId('Microsoft.Network/networkInterfaces', variables('nicName'))]",
+        "nsgRef": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('nsgName'))]",
+        "username": "azureuser"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Network/virtualNetworks",
+            "name": "[variables('vnetName')]",
+            "apiVersion": "2015-06-15",
+            "location": "[resourceGroup().location]",
+            "tags": {},
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "[variables('addressPrefix')]"
+                    ]
+                },
+                "subnets": [
+                    {
+                        "name": "[variables('subnetName')]",
+                        "properties": {
+                            "addressPrefix": "[variables('subnetPrefix')]"
+                        }
+                    }
+                ]
+            },
+            "dependsOn": []
+        },
+        {
+            "type": "Microsoft.Network/networkSecurityGroups",
+            "name": "[variables('nsgName')]",
+            "apiVersion": "2015-06-15",
+            "location": "[resourceGroup().location]",
+            "tags": {},
+            "properties": {
+                "securityRules": []
+            },
+            "dependsOn": []
+        },
+        {
+            "type": "Microsoft.Network/publicIPAddresses",
+            "name": "[variables('publicIPAddressName')]",
+            "apiVersion": "2018-01-01",
+            "location": "[resourceGroup().location]",
+          "tags": {
+            "ForceTryPreprovisionedVMEscrow": "ForceTryPreprovisionedVMEscrow"
+          },
+            "properties": {
+                "publicIPAllocationMethod": "Dynamic"
+            },
+            "dependsOn": []
+        },
+        {
+            "type": "Microsoft.Network/networkInterfaces",
+            "name": "[variables('nicName')]",
+            "apiVersion": "2015-06-15",
+            "location": "[resourceGroup().location]",
+            "tags": {},
+            "properties": {
+                "ipConfigurations": [
+                    {
+                        "name": "ipconfigmyVM",
+                        "properties": {
+                            "privateIPAllocationMethod": "Dynamic",
+                            "subnet": {
+                                "id": "[variables('subnetRef')]"
+                            },
+                            "publicIPAddress": {
+                                "id": "[variables('ipRef')]"
+                            }
+                        }
+                    }
+                ],
+                "networkSecurityGroup": {
+                    "id": "[variables('nsgRef')]"
+                }
+            },
+            "dependsOn": [
+                "[concat('Microsoft.Network/virtualNetworks/',variables('vnetName'))]",
+                "[concat('Microsoft.Network/networkSecurityGroups/',variables('nsgName'))]",
+                "[concat('Microsoft.Network/publicIpAddresses/',variables('publicIPAddressName'))]"
+            ]
+        },
+        {
+            "type": "Microsoft.Compute/virtualMachines",
+            "name": "myVM",
+            "apiVersion": "2018-06-01",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "hardwareProfile": {
+                    "vmSize": "Standard_D2s_v3"
+                },
+                "networkProfile": {
+                    "networkInterfaces": [
+                        {
+                            "id": "[variables('nicRef')]"
+                        }
+                    ]
+                },
+                "storageProfile": {
+                    "osDisk": {
+                        "createOption": "fromImage",
+                        "name": null,
+                        "caching": "ReadWrite",
+                        "managedDisk": {
+                            "storageAccountType": null
+                        }
+                    },
+                    "imageReference": {
+                        "publisher": "[parameters('ImagePublisher')]",
+                        "offer": "[parameters('ImageOffer')]",
+                        "sku": "[parameters('ImageSku')]",
+                        "version": "[parameters('ImageVersion')]"
+                    }
+                },
+                "osProfile": {
+                    "computerName": "myVM",
+                    "adminUsername": "[variables('username')]",
+                    "adminPassword": "Reus3rBlitz0987!",
+                    "customData": "ZWNobyAiSGVsbG8gd29ybGQi"
+                }
+            },
+            "dependsOn": [
+                "[concat('Microsoft.Network/networkInterfaces/', variables('nicName'))]"
+            ]
+        }
+    ],
+    "outputs": {}
+}
